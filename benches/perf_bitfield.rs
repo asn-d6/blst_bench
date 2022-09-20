@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use blstrs::{G1Projective, G2Projective, Scalar};
+use blstrs::{G1Projective, Scalar};
 use criterion::*;
 use group::ff::Field;
 use group::Group;
