@@ -1,5 +1,7 @@
  #![allow(non_snake_case)]
 
+use rand;
+use rand::Rng;
 use std::hash::{Hash, Hasher};
 use hashbrown::HashMap;
 use blstrs::{G1Projective, Scalar};
@@ -41,7 +43,6 @@ impl MsmAccumulator {
     ) {
         // let's ignore the random lincomb random factor for now
 //        let random_factor = Scalar::random(rng);
-
         for (scalar, base) in vec_b.iter().zip(vec_P.iter()) {
             let entry_scalar = self.base_scalar_map.entry(*base).or_insert_with(Scalar::zero);
             *entry_scalar += scalar
@@ -70,15 +71,15 @@ fn benchmark_accumulator(c: &mut Criterion) {
     let mut all_uint4_vecs = vec![];
     let mut all_uint1_vecs = vec![];
     let mut all_scalar_vecs = vec![];
-    for _ in 0..16 {
-        let vec_uint4: Vec<_> = (0..size).map(|_| Scalar::from(4)).collect();
+    for _ in 0..16 { // 16 collectors
+        let vec_uint4: Vec<_> = (0..size).map(|_| Scalar::from(rng.gen_range(0..=15))).collect();
         all_uint4_vecs.push(vec_uint4);
-        let vec_uint1s: Vec<_> = (0..size).map(|_| Scalar::from(1)).collect();
+        let vec_uint1s: Vec<_> = (0..size).map(|_| Scalar::from(rng.gen_range(0..=1))).collect();
         all_uint1_vecs.push(vec_uint1s);
         let vec_scalar: Vec<_> = (0..size).map(|_| Scalar::random(&mut rng)).collect();
         all_scalar_vecs.push(vec_scalar);
-
     }
+
 
     c.bench_function("naive batch-verify 16 32k msms w/ full scalar", |b| {
         b.iter(|| {
@@ -102,12 +103,11 @@ fn benchmark_accumulator(c: &mut Criterion) {
         });
     });
 
-
-    let mut accumulator = MsmAccumulator::new();
     let vec_B: Vec<_> = (0..size).map(|_| MyProjective(G1Projective::random(&mut rng))).collect();
     c.bench_function("accumulate 16 32k msms w/ full scalar", |b| {
         b.iter(|| {
-           for vec_scalar in &all_scalar_vecs {
+            let mut accumulator = MsmAccumulator::new();
+            for vec_scalar in &all_scalar_vecs {
                 accumulator.accumulate(&vec_scalar, &vec_B);
             }
 
@@ -117,7 +117,8 @@ fn benchmark_accumulator(c: &mut Criterion) {
 
     c.bench_function("accumulate 16 32k msms w/ uint4", |b| {
         b.iter(|| {
-           for vec_uint4 in &all_uint4_vecs {
+            let mut accumulator = MsmAccumulator::new();
+            for vec_uint4 in &all_uint4_vecs {
                 accumulator.accumulate(&vec_uint4, &vec_B);
             }
 
@@ -127,7 +128,8 @@ fn benchmark_accumulator(c: &mut Criterion) {
 
     c.bench_function("accumulate 16 32k msms w/ bitfield", |b| {
         b.iter(|| {
-           for vec_uint1 in &all_uint1_vecs {
+            let mut accumulator = MsmAccumulator::new();
+            for vec_uint1 in &all_uint1_vecs {
                 accumulator.accumulate(&vec_uint1, &vec_B);
             }
 
@@ -138,7 +140,7 @@ fn benchmark_accumulator(c: &mut Criterion) {
 
 
 criterion_group! {name = accumulator;
-                  config = Criterion::default();
+                  config = Criterion::default().sample_size(10);
                   targets = benchmark_accumulator
 }
 
